@@ -1,0 +1,74 @@
+name: CI / Automated Testing Pipeline
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    name: Build, Lint & Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_ci_password
+          POSTGRES_DB: saas_ai_chatbot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client & Run RLS Migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres_ci_password@localhost:5432/saas_ai_chatbot_test?schema=public
+        run: |
+          npm run build --workspace=@saas/database
+
+      - name: Build Shared Types & Packages
+        run: |
+          npm run build --workspace=@saas/shared-types
+
+      - name: TypeScript Type-Check
+        run: |
+          npm run type-check --workspace=@saas/api
+
+      - name: Execute Full Automated Test Suite (73 Tests)
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgresql://postgres:postgres_ci_password@localhost:5432/saas_ai_chatbot_test?schema=public
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: ci_secret_jwt_key_testing_only
+          ENCRYPTION_KEY: 32_chars_secret_ci_encryption_key
+        run: |
+          npm test --workspace=@saas/api

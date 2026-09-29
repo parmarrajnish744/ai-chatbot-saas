@@ -1,0 +1,13 @@
+{
+  "name": "@saas/chat-widget",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/widget.js",
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

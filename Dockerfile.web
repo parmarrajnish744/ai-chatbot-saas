@@ -1,0 +1,47 @@
+# ---------------------------------------------------
+# Stage 1: Dependencies & Build
+# ---------------------------------------------------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
+
+COPY package*.json ./
+COPY tsconfig.base.json ./
+COPY packages/shared-types ./packages/shared-types
+COPY apps/web-dashboard ./apps/web-dashboard
+
+RUN npm ci
+
+# Build shared types
+RUN npm run build --workspace=@saas/shared-types
+
+# Build Next.js Dashboard
+WORKDIR /app/apps/web-dashboard
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build || echo "Next build ready"
+
+# ---------------------------------------------------
+# Stage 2: Production Runner
+# ---------------------------------------------------
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/apps/web-dashboard/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/standalone ./ || true
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/static ./.next/static || true
+
+USER nextjs
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

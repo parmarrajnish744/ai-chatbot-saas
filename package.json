@@ -1,0 +1,23 @@
+{
+  "name": "omnichannel-ai-chatbot-saas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-grade multi-tenant AI WhatsApp & Omnichannel Chatbot SaaS platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "dev": "npm run dev --workspace=apps/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "type-check": "npm run type-check --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace=packages/database",
+    "db:migrate": "npm run db:migrate --workspace=packages/database",
+    "db:seed": "npm run db:seed --workspace=packages/database"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

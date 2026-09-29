@@ -1,0 +1,58 @@
+# ---------------------------------------------------
+# Stage 1: Build & Prune
+# ---------------------------------------------------
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache libc6-compat openssl
+
+COPY package*.json ./
+COPY tsconfig.base.json ./
+COPY packages/shared-types ./packages/shared-types
+COPY packages/database ./packages/database
+COPY apps/api ./apps/api
+
+# Install all workspace dependencies
+RUN npm ci
+
+# Generate Prisma Client & Build Packages
+RUN npm run build --workspace=@saas/shared-types
+RUN npm run build --workspace=@saas/database
+RUN npm run build --workspace=@saas/api
+
+# ---------------------------------------------------
+# Stage 2: Production Runtime
+# ---------------------------------------------------
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=4000
+
+# Install runtime dependencies for Prisma and OpenSSL
+RUN apk add --no-cache openssl dumb-init
+
+# Create non-privileged user for security
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 saasbot
+
+# Copy built application and production dependencies
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/packages/shared-types/package*.json ./packages/shared-types/
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder /app/packages/database/package*.json ./packages/database/
+COPY --from=builder /app/packages/database/dist ./packages/database/dist
+COPY --from=builder /app/packages/database/prisma ./packages/database/prisma
+COPY --from=builder /app/apps/api/package*.json ./apps/api/
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/node_modules ./node_modules
+
+USER saasbot
+
+EXPOSE 4000
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "apps/api/dist/main.js"]

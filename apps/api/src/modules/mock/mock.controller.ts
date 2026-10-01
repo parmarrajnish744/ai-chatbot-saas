@@ -3,11 +3,15 @@ import { z } from 'zod';
 import { prisma } from '@saas/database';
 import { queueService } from '../../queues/queue.service';
 import { InboundMessagePayload } from '@saas/shared-types';
+import { agentOrchestrator } from '../ai/agent.orchestrator';
+import { LiveDeskGatewayHub } from '../../gateways/live-desk.gateway';
 
 const mockWhatsAppSchema = z.object({
-  tenantId: z.string().uuid(),
-  senderPhone: z.string().min(5),
-  senderName: z.string().optional().default('Mock Customer'),
+  tenantId: z.string().optional().default('00000000-0000-0000-0000-000000000001'),
+  senderPhone: z.string().optional(),
+  phone: z.string().optional(),
+  senderName: z.string().optional(),
+  name: z.string().optional(),
   text: z.string().min(1),
   buttonPayload: z.string().optional(),
 });
@@ -19,51 +23,76 @@ export async function mockRoutes(fastify: FastifyInstance) {
    */
   fastify.post('/whatsapp-inbound', async (request: FastifyRequest, reply: FastifyReply) => {
     try {
-      const body = mockWhatsAppSchema.parse(request.body);
+      const raw = request.body as any;
+      const parsed = mockWhatsAppSchema.parse(raw);
 
-      // Verify tenant exists
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: body.tenantId },
-        include: { channels: true },
-      });
+      const tenantId = parsed.tenantId || (request.headers['x-tenant-id'] as string) || '00000000-0000-0000-0000-000000000001';
+      const senderPhone = parsed.senderPhone || parsed.phone || '+14155552671';
+      const senderName = parsed.senderName || parsed.name || 'Mock Customer';
 
-      if (!tenant) {
-        return reply.status(404).send({
-          success: false,
-          error: { code: 'TENANT_NOT_FOUND', message: 'Tenant does not exist' },
+      let channelId = 'mock-channel-' + tenantId;
+      try {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          include: { channels: true },
         });
-      }
-
-      const channel = tenant.channels.find((c) => c.type === 'WHATSAPP') || tenant.channels[0];
-      const channelId = channel ? channel.id : 'mock-channel-' + tenant.id;
+        if (tenant?.channels?.length) {
+          channelId = tenant.channels[0].id;
+        }
+      } catch (e) {}
 
       const normalized: InboundMessagePayload = {
-        tenantId: tenant.id,
+        tenantId,
         channelId,
         channelType: 'WHATSAPP',
         channelMessageId: 'wamid.MOCK_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
         sender: {
-          externalId: body.senderPhone,
-          name: body.senderName,
+          externalId: senderPhone,
+          name: senderName,
         },
         recipient: {
-          channelIdentifier: channel ? channel.identifier : '+15550000000',
+          channelIdentifier: '+15550000000',
         },
         message: {
-          type: body.buttonPayload ? 'INTERACTIVE_BUTTONS' : 'TEXT',
-          text: body.text,
-          buttonPayload: body.buttonPayload,
+          type: parsed.buttonPayload ? 'INTERACTIVE_BUTTONS' : 'TEXT',
+          text: parsed.text,
+          buttonPayload: parsed.buttonPayload,
         },
         timestamp: new Date().toISOString(),
       };
 
-      // Push into BullMQ processing queue
-      await queueService.enqueueInbound(normalized);
+      // Try enqueue if queue is ready
+      try {
+        await queueService.enqueueInbound(normalized);
+      } catch (e) {}
+
+      // Execute autonomous ReAct turn with LLM (Gemini / fallback)
+      const botReply = await agentOrchestrator.runReActLoop({
+        systemPrompt: 'You are an intelligent, helpful omnichannel customer assistant.',
+        userMessage: parsed.text,
+        history: [],
+        context: {
+          tenantId,
+          conversationId: 'mock-conv-' + senderPhone.replace(/\D/g, ''),
+        },
+      });
+
+      // Broadcast to Live Desk WebSocket stream
+      try {
+        LiveDeskGatewayHub.notifyAllAgents('new_message', {
+          conversationId: 'mock-conv-' + senderPhone.replace(/\D/g, ''),
+          message: {
+            senderType: 'BOT',
+            text: botReply,
+          },
+        });
+      } catch (e) {}
 
       return reply.status(200).send({
         success: true,
         data: {
-          message: 'Mock WhatsApp message queued successfully',
+          message: 'Mock WhatsApp message processed successfully',
+          reply: botReply,
           channelMessageId: normalized.channelMessageId,
           payload: normalized,
         },

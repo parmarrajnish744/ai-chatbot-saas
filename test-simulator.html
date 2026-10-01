@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Bot AI Live Simulator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background: #0c1317; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .chat-container { width: 100%; max-width: 440px; height: 650px; background: #111b21; border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6); border: 1px solid #222e35; }
+    .chat-header { background: #202c33; padding: 14px 18px; display: flex; align-items: center; gap: 12px; color: #e9edef; border-bottom: 1px solid #2a3942; }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; background: #00a884; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .header-info h3 { font-size: 16px; font-weight: 600; color: #e9edef; }
+    .header-info p { font-size: 12px; color: #25d366; display: flex; align-items: center; gap: 4px; }
+    .header-info p::before { content: ""; width: 7px; height: 7px; background: #25d366; border-radius: 50%; display: inline-block; }
+    .chat-body { flex: 1; padding: 16px; overflow-y: auto; background-color: #0b141a; background-image: radial-gradient(#1f2c34 1px, transparent 1px); background-size: 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 82%; padding: 10px 14px; border-radius: 12px; font-size: 14px; line-height: 1.45; word-wrap: break-word; white-space: pre-wrap; }
+    .msg-user { align-self: flex-end; background: #005c4b; color: #e9edef; border-bottom-right-radius: 2px; }
+    .msg-bot { align-self: flex-start; background: #202c33; color: #e9edef; border-bottom-left-radius: 2px; }
+    .msg-time { font-size: 10px; color: rgba(255,255,255,0.5); text-align: right; margin-top: 4px; }
+    .typing { display: none; align-self: flex-start; background: #202c33; color: #8696a0; font-size: 13px; font-style: italic; padding: 8px 14px; border-radius: 12px; }
+    .chat-footer { background: #202c33; padding: 12px 14px; display: flex; align-items: center; gap: 10px; border-top: 1px solid #2a3942; }
+    .chat-input { flex: 1; background: #2a3942; border: none; outline: none; color: #d1d7db; padding: 12px 16px; border-radius: 24px; font-size: 14px; }
+    .chat-input::placeholder { color: #8696a0; }
+    .send-btn { background: #00a884; border: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #111b21; transition: transform 0.15s; }
+    .send-btn:hover { transform: scale(1.05); }
+    .presets { display: flex; gap: 6px; overflow-x: auto; padding: 8px 12px; background: #182229; border-top: 1px solid #222e35; }
+    .preset-btn { background: #222e35; border: 1px solid #2a3942; color: #00a884; font-size: 11px; padding: 5px 10px; border-radius: 12px; cursor: pointer; white-space: nowrap; }
+    .preset-btn:hover { background: #2a3942; }
+  </style>
+</head>
+<body>
+
+<div class="chat-container">
+  <div class="chat-header">
+    <div class="avatar">🤖</div>
+    <div class="header-info">
+      <h3>AI WhatsApp Assistant (Mock)</h3>
+      <p>Online • Localhost:4000</p>
+    </div>
+  </div>
+
+  <div class="chat-body" id="chatBody">
+    <div class="msg msg-bot">
+      Namaste! Main aapka AI assistant hoon. Aap mujhse Menu, Products, Booking ya Order status ke baare me pooch sakte hain!
+      <div class="msg-time">Just now</div>
+    </div>
+    <div class="typing" id="typingIndicator">AI Agent is thinking...</div>
+  </div>
+
+  <div class="presets">
+    <button class="preset-btn" onclick="sendPreset('Hello, what products or menu do you have?')">🍕 View Menu</button>
+    <button class="preset-btn" onclick="sendPreset('Can I book an appointment tomorrow?')">📅 Book Appointment</button>
+    <button class="preset-btn" onclick="sendPreset('Where is my order #1001?')">📦 Track Order</button>
+    <button class="preset-btn" onclick="sendPreset('I want to speak with a human support agent')">👤 Talk to Human</button>
+  </div>
+
+  <div class="chat-footer">
+    <input type="text" id="userInput" class="chat-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter') sendMessage()" />
+    <button class="send-btn" onclick="sendMessage()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  const chatBody = document.getElementById('chatBody');
+  const userInput = document.getElementById('userInput');
+  const typingIndicator = document.getElementById('typingIndicator');
+
+  function appendMessage(text, type) {
+    const div = document.createElement('div');
+    div.className = 'msg msg-' + type;
+    div.textContent = text;
+    const time = document.createElement('div');
+    time.className = 'msg-time';
+    time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    div.appendChild(time);
+    chatBody.insertBefore(div, typingIndicator);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+  function sendPreset(text) {
+    userInput.value = text;
+    sendMessage();
+  }
+
+  async function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text) return;
+    userInput.value = '';
+    appendMessage(text, 'user');
+
+    typingIndicator.style.display = 'block';
+    chatBody.scrollTop = chatBody.scrollHeight;
+
+    try {
+      const response = await fetch('http://localhost:4000/api/v1/mock/whatsapp-inbound', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text,
+          senderPhone: '+919876543210',
+          senderName: 'Rajnish'
+        })
+      });
+
+      const result = await response.json();
+      typingIndicator.style.display = 'none';
+
+      if (result.success && result.data && result.data.reply) {
+        appendMessage(result.data.reply, 'bot');
+      } else {
+        appendMessage('⚠️ Error: ' + (result.error?.message || 'Server error'), 'bot');
+      }
+    } catch (err) {
+      typingIndicator.style.display = 'none';
+      appendMessage('⚠️ Could not connect to http://localhost:4000. Please ensure the API is running!', 'bot');
+    }
+  }
+</script>
+
+</body>
+</html>

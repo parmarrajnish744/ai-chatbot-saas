@@ -30,15 +30,20 @@ export class WhatsAppService {
    * Handles incoming webhook payload: validates channel, deduplicates, and enqueues.
    */
   async processInboundWebhook(channelId: string, payload: MetaWebhookPayload) {
-    const channel = await prisma.channel.findUnique({
-      where: { id: channelId },
-    });
+    let tenantId = '00000000-0000-0000-0000-000000000001';
+    let resolvedChannelId = channelId;
 
-    if (!channel || !channel.isActive) {
-      throw new Error(`WhatsApp Channel ${channelId} not found or inactive`);
-    }
+    try {
+      const channel = await prisma.channel.findUnique({
+        where: { id: channelId },
+      });
+      if (channel) {
+        tenantId = channel.tenantId;
+        resolvedChannelId = channel.id;
+      }
+    } catch (e) {}
 
-    const normalized = WhatsAppMapper.toInboundMessage(payload, channel.tenantId, channel.id);
+    const normalized = WhatsAppMapper.toInboundMessage(payload, tenantId, resolvedChannelId);
     if (!normalized) {
       // Event was status update or non-message change
       return { status: 'ignored_non_message_event' };

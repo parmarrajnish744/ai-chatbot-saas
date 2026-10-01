@@ -5,6 +5,7 @@ import { conversationHistoryService } from './conversation-history.service';
 import { guardrailsService } from './guardrails.service';
 import { toolRegistry } from './tool-registry';
 import { outboundDispatcher } from '../channels/outbound.dispatcher';
+import { llmProviderService } from './llm-provider.service';
 
 export class AgentOrchestrator {
   private maxReActSteps = 5;
@@ -44,7 +45,7 @@ export class AgentOrchestrator {
       // 6. Build Chat Context
       const history = await conversationHistoryService.buildChatHistory(conversation.id, 8);
 
-      // 7. Run ReAct Autonomous Loop
+      // 7. Run ReAct Autonomous Loop with Real LLM Provider / Fallback
       const replyText = await this.runReActLoop({
         systemPrompt: basePrompt,
         userMessage: guardResult.sanitizedText,
@@ -84,6 +85,7 @@ export class AgentOrchestrator {
 
   /**
    * Autonomous ReAct loop with multi-step tool calling.
+   * Delegates to LLM provider (OpenAI, Gemini, Groq) with zero-downtime offline fallback.
    */
   async runReActLoop(params: {
     systemPrompt: string;
@@ -91,37 +93,13 @@ export class AgentOrchestrator {
     history: Array<{ role: string; content: string }>;
     context: { tenantId: string; conversationId: string; contactId?: string };
   }): Promise<string> {
-    const { userMessage, context } = params;
-
-    // Pattern-based tool matching for offline dev / testing or when LLM API keys are unconfigured
-    const lower = userMessage.toLowerCase();
-
-    if (lower.includes('menu') || lower.includes('product') || lower.includes('price')) {
-      const toolRes = await toolRegistry.executeTool('search_products', { searchTerm: 'all' }, context);
-      if (toolRes.products && toolRes.products.length > 0) {
-        return `Here are some of our popular items:\n` +
-          toolRes.products.map((p: any) => `• ${p.name} — ${p.price}`).join('\n') +
-          `\nWould you like more details or help ordering?`;
-      }
-    }
-
-    if (lower.includes('book') || lower.includes('appointment') || lower.includes('reserve') || lower.includes('table')) {
-      const toolRes = await toolRegistry.executeTool('check_calendar_availability', { date: '2026-10-02' }, context);
-      return `We have open slots available on ${toolRes.date}: ${toolRes.availableSlots.join(', ')}. What time works best for you?`;
-    }
-
-    if (lower.includes('human') || lower.includes('agent') || lower.includes('speak to someone') || lower.includes('operator')) {
-      await toolRegistry.executeTool('transfer_to_human', { reason: 'Customer requested human support', urgency: 'medium' }, context);
-      return 'I have forwarded your request to our team. A team member will join this conversation shortly!';
-    }
-
-    if (lower.includes('order') || lower.includes('tracking') || lower.includes('shipment')) {
-      const toolRes = await toolRegistry.executeTool('check_order_status', { orderNumber: '1001' }, context);
-      return `Order #${toolRes.orderNumber} is currently ${toolRes.status}. Estimated delivery: ${toolRes.estimatedDelivery} via ${toolRes.carrier}.`;
-    }
-
-    // Default conversational response
-    return `Thank you for contacting us! I am here to help you with our services, reservations, product catalog, and order tracking. How can I assist you today?`;
+    return llmProviderService.generateToolCallingResponse({
+      systemPrompt: params.systemPrompt,
+      userMessage: params.userMessage,
+      history: params.history,
+      context: params.context,
+      maxSteps: this.maxReActSteps,
+    });
   }
 }
 

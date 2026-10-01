@@ -20,7 +20,7 @@
     "db:seed": "npm run db:seed --workspace=packages/database"
   },
   "devDependencies": {
-    "@esbuild/win32-x64": "^0.28.2",
+    "esbuild": "^0.28.2",
     "typescript": "^5.4.5"
   }
 }

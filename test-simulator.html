@@ -32,11 +32,23 @@
 <body>
 
 <div class="chat-container">
+<div class="server-bar" style="background: #182229; padding: 8px 14px; border-bottom: 1px solid #2a3942; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #8696a0; gap: 8px;">
+    <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+      <span style="white-space: nowrap;">API Server:</span>
+      <input type="text" id="serverUrlInput" value="http://localhost:4000" style="background: #2a3942; border: 1px solid #3b4a54; color: #e9edef; font-size: 12px; padding: 4px 8px; border-radius: 6px; flex: 1; outline: none;" placeholder="e.g. http://13.233.xx.xx:4000" onchange="saveServerUrl()" />
+      <button onclick="checkServerHealth()" style="background: #00a884; border: none; color: #111b21; padding: 4px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 11px;">Ping</button>
+    </div>
+    <span id="serverStatusBadge" style="padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #3b4a54; color: #aebac1; white-space: nowrap;">Checking...</span>
+  </div>
+
   <div class="chat-header">
     <div class="avatar">🤖</div>
     <div class="header-info">
-      <h3>AI WhatsApp Assistant (Mock)</h3>
-      <p>Online • Localhost:4000</p>
+      <h3>AI WhatsApp Assistant (Live)</h3>
+      <p id="headerStatusText">Ready for Testing</p>
+    </div>
+    <div style="margin-left: auto;">
+      <a id="dashboardLink" href="http://localhost:3000" target="_blank" style="color: #00a884; font-size: 11px; text-decoration: none; background: #222e35; border: 1px solid #2a3942; padding: 4px 8px; border-radius: 6px;">Open CRM ↗</a>
     </div>
   </div>
 
@@ -69,6 +81,62 @@
   const chatBody = document.getElementById('chatBody');
   const userInput = document.getElementById('userInput');
   const typingIndicator = document.getElementById('typingIndicator');
+  const serverUrlInput = document.getElementById('serverUrlInput');
+  const serverStatusBadge = document.getElementById('serverStatusBadge');
+  const headerStatusText = document.getElementById('headerStatusText');
+  const dashboardLink = document.getElementById('dashboardLink');
+
+  function getServerUrl() {
+    return (localStorage.getItem('ai_bot_api_url') || serverUrlInput.value || 'http://localhost:4000').replace(/\/+$/, '');
+  }
+
+  function saveServerUrl() {
+    let url = serverUrlInput.value.trim().replace(/\/+$/, '');
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'http://' + url;
+      serverUrlInput.value = url;
+    }
+    localStorage.setItem('ai_bot_api_url', url);
+    updateDashboardLink(url);
+    checkServerHealth();
+  }
+
+  function updateDashboardLink(apiUrl) {
+    try {
+      const parsed = new URL(apiUrl);
+      const dashboardUrl = `${parsed.protocol}//${parsed.hostname}:3000`;
+      dashboardLink.href = dashboardUrl;
+    } catch (e) {
+      dashboardLink.href = 'http://localhost:3000';
+    }
+  }
+
+  async function checkServerHealth() {
+    const baseUrl = getServerUrl();
+    serverStatusBadge.textContent = 'Pinging...';
+    serverStatusBadge.style.background = '#3b4a54';
+    serverStatusBadge.style.color = '#aebac1';
+
+    try {
+      const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(4000) });
+      const data = await res.json();
+      if (res.ok && data.status === 'ok') {
+        serverStatusBadge.textContent = '🟢 Online';
+        serverStatusBadge.style.background = '#005c4b';
+        serverStatusBadge.style.color = '#25d366';
+        headerStatusText.textContent = `Online • ${new URL(baseUrl).host}`;
+      } else {
+        serverStatusBadge.textContent = '⚠️ Degraded';
+        serverStatusBadge.style.background = '#7a5a00';
+        serverStatusBadge.style.color = '#ffd279';
+      }
+    } catch (err) {
+      serverStatusBadge.textContent = '🔴 Offline';
+      serverStatusBadge.style.background = '#5a1d1d';
+      serverStatusBadge.style.color = '#ff8f8f';
+      headerStatusText.textContent = 'Offline (Check URL/Port)';
+    }
+  }
 
   function appendMessage(text, type) {
     const div = document.createElement('div');
@@ -96,8 +164,10 @@
     typingIndicator.style.display = 'block';
     chatBody.scrollTop = chatBody.scrollHeight;
 
+    const baseUrl = getServerUrl();
+
     try {
-      const response = await fetch('http://localhost:4000/api/v1/mock/whatsapp-inbound', {
+      const response = await fetch(`${baseUrl}/api/v1/mock/whatsapp-inbound`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -117,9 +187,17 @@
       }
     } catch (err) {
       typingIndicator.style.display = 'none';
-      appendMessage('⚠️ Could not connect to http://localhost:4000. Please ensure the API is running!', 'bot');
+      appendMessage(`⚠️ Could not connect to ${baseUrl}. Please ensure the API is running and accessible!`, 'bot');
     }
   }
+
+  // Initialize on load
+  const savedUrl = localStorage.getItem('ai_bot_api_url');
+  if (savedUrl) {
+    serverUrlInput.value = savedUrl;
+  }
+  updateDashboardLink(getServerUrl());
+  checkServerHealth();
 </script>
 
 </body>

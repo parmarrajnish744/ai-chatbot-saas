@@ -17,6 +17,7 @@ COPY apps ./apps
 RUN npm ci
 
 # Generate Prisma Client & Build Packages
+RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 RUN npm run build --workspace=@saas/shared-types
 RUN npm run build --workspace=@saas/database
 RUN npm run build --workspace=@saas/api

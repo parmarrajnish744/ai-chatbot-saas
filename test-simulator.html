@@ -35,7 +35,7 @@
 <div class="server-bar" style="background: #182229; padding: 8px 14px; border-bottom: 1px solid #2a3942; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #8696a0; gap: 8px;">
     <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
       <span style="white-space: nowrap;">API Server:</span>
-      <input type="text" id="serverUrlInput" value="http://localhost:4000" style="background: #2a3942; border: 1px solid #3b4a54; color: #e9edef; font-size: 12px; padding: 4px 8px; border-radius: 6px; flex: 1; outline: none;" placeholder="e.g. http://13.233.xx.xx:4000" onchange="saveServerUrl()" />
+      <input type="text" id="serverUrlInput" value="http://65.0.101.92:4000" style="background: #2a3942; border: 1px solid #3b4a54; color: #e9edef; font-size: 12px; padding: 4px 8px; border-radius: 6px; flex: 1; outline: none;" placeholder="e.g. http://65.0.101.92:4000" onchange="saveServerUrl()" />
       <button onclick="checkServerHealth()" style="background: #00a884; border: none; color: #111b21; padding: 4px 10px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 11px;">Ping</button>
     </div>
     <span id="serverStatusBadge" style="padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #3b4a54; color: #aebac1; white-space: nowrap;">Checking...</span>
@@ -87,7 +87,7 @@
   const dashboardLink = document.getElementById('dashboardLink');
 
   function getServerUrl() {
-    return (localStorage.getItem('ai_bot_api_url') || serverUrlInput.value || 'http://localhost:4000').replace(/\/+$/, '');
+    return (localStorage.getItem('ai_bot_api_url') || serverUrlInput.value || 'http://65.0.101.92:4000').replace(/\/+$/, '');
   }
 
   function saveServerUrl() {

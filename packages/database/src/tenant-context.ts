@@ -32,9 +32,9 @@ export async function withTenantContext<T>(
  */
 export async function withPrismaTenantContext<T>(
   tenantId: string,
-  operation: (tx: Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>) => Promise<T>
+  operation: (tx: any) => Promise<T>
 ): Promise<T> {
-  return await prisma.$transaction(async (tx) => {
+  return await prisma.$transaction(async (tx: any) => {
     await tx.$executeRawUnsafe(`SELECT set_config('app.current_tenant_id', '${tenantId}', true)`);
     return await operation(tx);
   });

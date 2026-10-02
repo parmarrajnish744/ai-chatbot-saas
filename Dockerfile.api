@@ -10,9 +10,8 @@ RUN apk add --no-cache libc6-compat openssl
 
 COPY package*.json ./
 COPY tsconfig.base.json ./
-COPY packages/shared-types ./packages/shared-types
-COPY packages/database ./packages/database
-COPY apps/api ./apps/api
+COPY packages ./packages
+COPY apps ./apps
 
 # Install all workspace dependencies
 RUN npm ci

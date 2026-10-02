@@ -9,8 +9,8 @@ RUN apk add --no-cache libc6-compat
 
 COPY package*.json ./
 COPY tsconfig.base.json ./
-COPY packages/shared-types ./packages/shared-types
-COPY apps/web-dashboard ./apps/web-dashboard
+COPY packages ./packages
+COPY apps ./apps
 
 RUN npm ci
 

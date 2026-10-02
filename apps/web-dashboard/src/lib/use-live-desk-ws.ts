@@ -25,7 +25,9 @@ export function useLiveDeskWS(params: {
     if (typeof window === 'undefined') return;
 
     try {
-      const wsUrl = `ws://localhost:4000/ws/live-desk?tenantId=${encodeURIComponent(tenantId)}&agentId=${encodeURIComponent(agentId)}`;
+      const wsHost = process.env.NEXT_PUBLIC_WS_HOST || (typeof window !== 'undefined' ? `${window.location.hostname}:4000` : 'localhost:4000');
+      const wsProtocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${wsHost}/ws/live-desk?tenantId=${encodeURIComponent(tenantId)}&agentId=${encodeURIComponent(agentId)}`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {

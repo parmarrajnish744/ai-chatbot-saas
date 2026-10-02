@@ -36,12 +36,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-COPY --from=builder /app/apps/web-dashboard/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/standalone ./ || true
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/static ./.next/static || true
+COPY --from=builder /app/apps/web-dashboard/public ./apps/web-dashboard/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web-dashboard/.next/static ./apps/web-dashboard/.next/static
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", "apps/web-dashboard/server.js"]
